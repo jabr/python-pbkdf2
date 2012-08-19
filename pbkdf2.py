@@ -4,6 +4,7 @@
 # pbkdf2 - PKCS#5 v2.0 Password-Based Key Derivation
 #
 # Copyright (C) 2007-2011 Dwayne C. Litzenberger <dlitz@dlitz.net>
+# Copyright (C) 2012 Justin Bradford <justin@etcland.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -49,7 +50,7 @@
 #
 ###########################################################################
 
-__version__ = "1.3"
+__version__ = "1.4"
 __all__ = ['PBKDF2', 'crypt']
 
 from struct import pack
@@ -233,7 +234,7 @@ def crypt(word, salt=None, iterations=None):
     The number of iterations specified in the salt overrides the 'iterations'
     parameter.
 
-    The effective hash length is 192 bits.
+    The effective hash length is 256 bits.
     """
 
     # Generate a (pseudo-)random salt if the user hasn't provided one.
@@ -258,7 +259,7 @@ def crypt(word, salt=None, iterations=None):
     if salt.startswith("$p5k2$"):
         (iterations, salt, dummy) = salt.split("$")[2:5]
         if iterations == "":
-            iterations = 400
+            iterations = 10000
         else:
             converted = int(iterations, 16)
             if iterations != "%x" % converted:  # lowercase hex, minimum digits
@@ -273,12 +274,12 @@ def crypt(word, salt=None, iterations=None):
         if ch not in allowed:
             raise ValueError("Illegal character %r in salt" % (ch,))
 
-    if iterations is None or iterations == 400:
-        iterations = 400
-        salt = "$p5k2$$" + salt
-    else:
-        salt = "$p5k2$%x$%s" % (iterations, salt)
-    rawhash = PBKDF2(word, salt, iterations).read(24)
+    if iterations is None:
+        iterations = 10000
+
+    salt = "$p5k2$%x$%s" % (iterations, salt)
+
+    rawhash = PBKDF2(word, salt, iterations).read(32)
     return salt + "$" + b64encode(rawhash, "./")
 
 # Add crypt as a static method of the PBKDF2 class
@@ -287,11 +288,11 @@ def crypt(word, salt=None, iterations=None):
 PBKDF2.crypt = staticmethod(crypt)
 
 def _makesalt():
-    """Return a 48-bit pseudorandom salt for crypt().
+    """Return a 96-bit pseudorandom salt for crypt().
 
     This function is not suitable for generating cryptographic secrets.
     """
-    binarysalt = b("").join([pack("@H", randint(0, 0xffff)) for i in range(3)])
+    binarysalt = b("").join([pack("@H", randint(0, 0xffff)) for i in range(6)])
     return b64encode(binarysalt, "./")
 
 # vim:set ts=4 sw=4 sts=4 expandtab:
